@@ -1,0 +1,68 @@
+{
+  "RunDate": "2026-05-15T23:27:25",
+  "ComputerName": "W-PF5LS0Q4",
+  "ExternalHost": "google.com",
+  "InternalHost": "cam.int.sap",
+  "ExternalSite": "https://www.google.com",
+  "InternalSite": "https://cam.int.sap",
+  "TotalDurationSec": 105.1,
+  "PassCount": 6,
+  "FailCount": 3,
+  "OverallStatus": "FAIL",
+  "Results": [
+    {
+      "Test": "VPN Adapter Detected",
+      "Status": "FAIL",
+      "Detail": "No matching adapter",
+      "DurationMs": 0.0
+    },
+    {
+      "Test": "DNS External (google.com)",
+      "Status": "PASS",
+      "Detail": "2404:6800:4009:814::200e",
+      "DurationMs": 657.0
+    },
+    {
+      "Test": "DNS Internal (cam.int.sap)",
+      "Status": "PASS",
+      "Detail": "100.114.54.6",
+      "DurationMs": 743.0
+    },
+    {
+      "Test": "Ping External (google.com)",
+      "Status": "PASS",
+      "Detail": "Avg 18ms",
+      "DurationMs": 3212.0
+    },
+    {
+      "Test": "Ping Internal (cam.int.sap)",
+      "Status": "PASS",
+      "Detail": "Avg 0ms",
+      "DurationMs": 22901.0
+    },
+    {
+      "Test": "TCP 443 (google.com)",
+      "Status": "PASS",
+      "Detail": "Port 443 open",
+      "DurationMs": 92.0
+    },
+    {
+      "Test": "TCP 443 (cam.int.sap)",
+      "Status": "FAIL",
+      "Detail": "Port 443 blocked or timeout",
+      "DurationMs": 3011.0
+    },
+    {
+      "Test": "HTTPS https://www.google.com",
+      "Status": "PASS",
+      "Detail": "HTTP 200",
+      "DurationMs": 398.0
+    },
+    {
+      "Test": "HTTPS https://cam.int.sap",
+      "Status": "FAIL",
+      "Detail": "The request was canceled due to the configured HttpClient.Timeout of 10 seconds elapsing.",
+      "DurationMs": 10004.0
+    }
+  ]
+}

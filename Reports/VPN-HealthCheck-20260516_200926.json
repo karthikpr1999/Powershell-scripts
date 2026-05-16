@@ -1,0 +1,68 @@
+{
+  "RunDate": "2026-05-16T20:09:26",
+  "ComputerName": "W-PF5LS0Q4",
+  "ExternalHost": "google.com",
+  "InternalHost": "cam.int.sap",
+  "ExternalSite": "https://www.google.com",
+  "InternalSite": "https://cam.int.sap",
+  "TotalDurationSec": 40.6,
+  "PassCount": 7,
+  "FailCount": 2,
+  "OverallStatus": "FAIL",
+  "Results": [
+    {
+      "Test": "VPN Adapter Detected",
+      "Status": "FAIL",
+      "Detail": "No matching adapter",
+      "DurationMs": 0.0
+    },
+    {
+      "Test": "DNS External (google.com)",
+      "Status": "PASS",
+      "Detail": "2404:6800:4000:101f::64",
+      "DurationMs": 217.0
+    },
+    {
+      "Test": "DNS Internal (cam.int.sap)",
+      "Status": "PASS",
+      "Detail": "",
+      "DurationMs": 332.0
+    },
+    {
+      "Test": "Ping External (google.com)",
+      "Status": "PASS",
+      "Detail": "Avg 95ms",
+      "DurationMs": 3508.0
+    },
+    {
+      "Test": "Ping Internal (cam.int.sap)",
+      "Status": "PASS",
+      "Detail": "Avg 215ms",
+      "DurationMs": 3890.0
+    },
+    {
+      "Test": "TCP 443 (google.com)",
+      "Status": "PASS",
+      "Detail": "Port 443 open",
+      "DurationMs": 169.0
+    },
+    {
+      "Test": "TCP 443 (cam.int.sap)",
+      "Status": "PASS",
+      "Detail": "Port 443 open",
+      "DurationMs": 227.0
+    },
+    {
+      "Test": "HTTPS https://www.google.com",
+      "Status": "PASS",
+      "Detail": "HTTP 200",
+      "DurationMs": 767.0
+    },
+    {
+      "Test": "HTTPS https://cam.int.sap",
+      "Status": "FAIL",
+      "Detail": "Response status code does not indicate success: 403 (Forbidden - certificate required).",
+      "DurationMs": 699.0
+    }
+  ]
+}

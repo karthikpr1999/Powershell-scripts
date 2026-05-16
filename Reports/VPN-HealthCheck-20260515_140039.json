@@ -1,0 +1,68 @@
+{
+  "RunDate": "2026-05-15T14:00:39",
+  "ComputerName": "W-PF5LS0Q4",
+  "ExternalHost": "baidu.com",
+  "InternalHost": "cam.int.sap",
+  "ExternalSite": "https://www.baidu.com",
+  "InternalSite": "https://cam.int.sap",
+  "TotalDurationSec": 69.5,
+  "PassCount": 7,
+  "FailCount": 2,
+  "OverallStatus": "FAIL",
+  "Results": [
+    {
+      "Test": "VPN Adapter Detected",
+      "Status": "FAIL",
+      "Detail": "No matching adapter",
+      "DurationMs": 0.0
+    },
+    {
+      "Test": "DNS External (baidu.com)",
+      "Status": "PASS",
+      "Detail": "111.63.65.103",
+      "DurationMs": 607.0
+    },
+    {
+      "Test": "DNS Internal (cam.int.sap)",
+      "Status": "PASS",
+      "Detail": "100.114.54.6",
+      "DurationMs": 606.0
+    },
+    {
+      "Test": "Ping External (baidu.com)",
+      "Status": "PASS",
+      "Detail": "Avg 438ms",
+      "DurationMs": 5216.0
+    },
+    {
+      "Test": "Ping Internal (cam.int.sap)",
+      "Status": "PASS",
+      "Detail": "Avg 666ms",
+      "DurationMs": 6092.0
+    },
+    {
+      "Test": "TCP 443 (baidu.com)",
+      "Status": "PASS",
+      "Detail": "Port 443 open",
+      "DurationMs": 742.0
+    },
+    {
+      "Test": "TCP 443 (cam.int.sap)",
+      "Status": "PASS",
+      "Detail": "Port 443 open",
+      "DurationMs": 862.0
+    },
+    {
+      "Test": "HTTPS https://www.baidu.com",
+      "Status": "PASS",
+      "Detail": "HTTP 200",
+      "DurationMs": 2102.0
+    },
+    {
+      "Test": "HTTPS https://cam.int.sap",
+      "Status": "FAIL",
+      "Detail": "Response status code does not indicate success: 403 (Forbidden - certificate required).",
+      "DurationMs": 2028.0
+    }
+  ]
+}
