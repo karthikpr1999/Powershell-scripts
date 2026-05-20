@@ -1,6 +1,6 @@
 {
   "ExternalHost": "google.com",
-  "InternalHost": "cam.int.sap",
+  "InternalHost": "",
   "ExternalWebSite": "https://www.google.com",
-  "InternalWebSite": "https://cam.int.sap"
+  "InternalWebSite": ""
 }
