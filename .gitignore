@@ -1,0 +1,17 @@
+# Sensitive reports — contain internal IPs, hostnames, and infrastructure details
+Reports/
+
+# Log files — contain activity timestamps and internal data
+*.log
+logic_monitor_logs/
+
+# Config files with real internal hostnames/URLs — commit only *.config.example.json
+*.config.json
+Hourly_LM_email.config.json
+
+# Network diagnostic output files
+*.txt
+
+# Miscellaneous
+.codegraph/
+i/

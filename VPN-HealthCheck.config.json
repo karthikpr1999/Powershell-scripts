@@ -2,5 +2,5 @@
   "ExternalHost": "google.com",
   "InternalHost": "cam.int.sap",
   "ExternalWebSite": "https://www.google.com",
-  "InternalWebSite": "https://cam.int.sap"
+  "InternalWebSite": "https://nip.wdf.sap.corp/"
 }

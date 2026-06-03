@@ -1,3 +1,10 @@
+# Prompt user for MTU size
+do {
+    $mtuInput = Read-Host "Enter MTU size to test (default: 1460)"
+    if ([string]::IsNullOrWhiteSpace($mtuInput)) { $mtuInput = "1460" }
+} while ($mtuInput -notmatch '^\d+$' -or [int]$mtuInput -lt 68 -or [int]$mtuInput -gt 9000)
+$MTU = [int]$mtuInput
+
 # Define your list of URLs/IPs here
 $Targets = @("google.com", "cloudflare.com", "microsoft.com", "amazon.in","youtube.com","facebook.com","twitter.com","linkedin.com","github.com","netflix.com","mausam.imd.gov.in", "us-east-1.console.aws.amazon.com")
 
@@ -25,9 +32,9 @@ foreach ($Server in $Targets) {
         Write-Host "[FAIL/SKIP]" -ForegroundColor Gray
     }
 
-    # 3. MTU 1460 Check
-    Write-Host "MTU Test (1460): " -NoNewline
-    $null = ping -n 1 -f -l 1460 $Server
+    # 3. MTU Check
+    Write-Host "MTU Test ($MTU): " -NoNewline
+    $null = ping -n 1 -f -l "$MTU" "$Server"
     if ($LASTEXITCODE -eq 0) {
         Write-Host "[OK]" -ForegroundColor Green
     } else {

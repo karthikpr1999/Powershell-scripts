@@ -1,0 +1,6 @@
+{
+  "ExternalHost": "example.com",
+  "InternalHost": "your-internal-host.your-domain.corp",
+  "ExternalWebSite": "https://www.example.com",
+  "InternalWebSite": "https://your-internal-site.your-domain.corp/"
+}

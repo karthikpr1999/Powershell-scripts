@@ -1,5 +1,19 @@
-# Replace with your actual company VPN Gateway public IP
-$GatewayIP = "137.83.231.72" 
+# Set VPN_GATEWAY_IP environment variable, or pass as argument: .\test1.ps1 -GatewayIP "x.x.x.x"
+param(
+    [Parameter(Mandatory=$false)]
+    [string]$GatewayIP = $env:VPN_GATEWAY_IP
+)
+
+if ([string]::IsNullOrWhiteSpace($GatewayIP)) {
+    Write-Error "GatewayIP is required. Set the VPN_GATEWAY_IP environment variable or pass -GatewayIP."
+    exit 1
+}
+
+# Validate IP format
+if ($GatewayIP -notmatch '^\d{1,3}(\.\d{1,3}){3}$') {
+    Write-Error "Invalid IP address format."
+    exit 1
+}
 
 Write-Host "Testing UDP 500 and 4500 Socket Initialization..." -ForegroundColor Cyan
 

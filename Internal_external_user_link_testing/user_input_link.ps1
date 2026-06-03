@@ -1,5 +1,11 @@
 # Ask for input
-$Target = Read-Host "Enter hostname or IP address"
+$Target = (Read-Host "Enter hostname or IP address").Trim()
+
+# Validate: allow only hostnames and IPv4/IPv6 addresses — no shell metacharacters
+if ($Target -notmatch '^[a-zA-Z0-9.\-:]+$' -or $Target.Length -eq 0) {
+    Write-Error "Invalid hostname or IP address. Only alphanumeric characters, dots, hyphens, and colons are allowed."
+    exit 1
+}
 
 # Output file
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
