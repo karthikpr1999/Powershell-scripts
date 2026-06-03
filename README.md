@@ -43,7 +43,7 @@ The most comprehensive diagnostic tool in the repo. Runs a full suite of paralle
 **What it tests:**
 | Test | Target |
 |------|--------|
-| DNS resolution | External host (default: `google.com`) and Internal host (default: `cam.int.sap`) |
+| DNS resolution | External host (default: `google.com`) and Internal host (default: ``) |
 | Ping latency | External + Internal |
 | TCP port 443 | External + Internal |
 | HTTPS response code | External + Internal websites |
