@@ -104,21 +104,53 @@ if (-not $IsAdmin) {
 # ==========================================
 Write-Host "========== VPN ADAPTER DETAILS ==========" -ForegroundColor Cyan
 
-# Get-NetIPConfiguration skips PPP/RAS adapters (F5 VPN); WMI covers all IP-enabled interfaces
-$VpnAdapters = Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled=TRUE" |
-    Where-Object { $_.Description -match "PANGP|GlobalProtect|VPN|_Common_" }
+# Get-NetAdapter and WMI both miss PPP/RAS adapters (F5 VPN shows as Modem/PPP type).
+# [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() is the only
+# API that enumerates all interface types including Ppp.
+$VpnPattern = "PANGP|GlobalProtect|VPN|_Common_"
 
-if ($VpnAdapters) {
-    $VpnAdapters | ForEach-Object {
-        $ipv4 = ($_.IPAddress | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }) -join ', '
-        $dns  = ($_.DNSServerSearchOrder -join ', ')
-        [PSCustomObject]@{
-            InterfaceAlias = $_.Description
-            IPv4Address    = $ipv4
-            DNSServers     = $dns
-        }
-    } | Format-Table -AutoSize
-    Add-Result "VPN Adapter Detected" $true ($VpnAdapters.Description -join ", ")
+$AllIfaces = [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()
+
+$VpnIfaces = $AllIfaces | Where-Object {
+    (
+        $_.NetworkInterfaceType -eq [System.Net.NetworkInformation.NetworkInterfaceType]::Ppp -or
+        $_.Name                 -match $VpnPattern -or
+        $_.Description          -match $VpnPattern
+    ) -and
+    $_.OperationalStatus -eq [System.Net.NetworkInformation.OperationalStatus]::Up -and
+    $_.Name        -notmatch '^Local Area Connection\*' -and
+    $_.Description -notmatch '(WFP|Npcap|QoS|LightWeight Filter|Packet Scheduler|Packet Driver)'
+}
+
+$DisplayAdapters = foreach ($iface in $VpnIfaces) {
+    $props = $iface.GetIPProperties()
+    $ipv4  = ($props.UnicastAddresses |
+                Where-Object { $_.Address.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork } |
+                ForEach-Object { $_.Address.ToString() }) -join ', '
+    $dns   = ($props.DnsAddresses |
+                Where-Object { $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork } |
+                ForEach-Object { $_.ToString() }) -join ', '
+    if (-not $ipv4) { continue }
+    $label = if ($iface.Description -and $iface.Description -ne $iface.Name) {
+        "$($iface.Name) ($($iface.Description))"
+    } else {
+        $iface.Name
+    }
+    [PSCustomObject]@{
+        Adapter     = $label
+        IPv4Address = $ipv4
+        DNSServers  = if ($dns) { $dns } else { "—" }
+    }
+}
+
+if ($DisplayAdapters) {
+    foreach ($a in $DisplayAdapters) {
+        Write-Host "  Adapter     : $($a.Adapter)" -ForegroundColor White
+        Write-Host "  IPv4Address : $($a.IPv4Address)"
+        Write-Host "  DNS Servers : $($a.DNSServers)"
+        Write-Host ""
+    }
+    Add-Result "VPN Adapter Detected" $true (($DisplayAdapters | ForEach-Object { $_.Adapter }) -join "; ")
 } else {
     Write-Host "No VPN adapter found." -ForegroundColor Yellow
     Add-Result "VPN Adapter Detected" $false "No matching adapter"
