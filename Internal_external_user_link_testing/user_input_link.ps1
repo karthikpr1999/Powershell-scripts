@@ -9,7 +9,7 @@ if ($Target -notmatch '^[a-zA-Z0-9.\-:]+$' -or $Target.Length -eq 0) {
 
 # Output file
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$outputFile = "Network_user_Link$($timestamp).txt"
+$outputFile = "user_Link$($timestamp).txt"
 
 # Clear old content
 "" | Out-File $OutputFile

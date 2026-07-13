@@ -4,10 +4,8 @@
 
 .DESCRIPTION
     Pings all hostnames/IPs in parallel using a RunspacePool — one runspace per host.
-    A synchronized hashtable lets each runspace report its live ping count back to the
-    main thread. Each host gets its own progress bar showing "Ping X / Total" in real
-    time. As soon as a host finishes, its summary is printed immediately — other hosts
-    continue pinging in the background. Results are saved to a CSV at the end.
+    Collects round-trip times, calculates packet loss and latency stats (min/max/avg),
+    prints a per-host and overall summary to the console, and saves results to a CSV.
 
 .PARAMETER Hostnames
     One or more hostnames or IP addresses to ping. Defaults to 4 public targets.
@@ -64,8 +62,7 @@ $pingScriptBlock = {
         [string]$Hostname,
         [int]$Count,
         [int]$TimeoutMS,
-        [int]$DelayMS,
-        [hashtable]$SharedState   # synchronized — safe to write from multiple runspaces
+        [int]$DelayMS
     )
 
     # Per-host stats object
@@ -110,9 +107,6 @@ $pingScriptBlock = {
                 if (-not $stats.Errors.Contains($msg)) { $stats.Errors.Add($msg) }
             }
 
-            # Report current ping number to the main thread so the progress bar updates live
-            $SharedState[$Hostname] = $i
-
             # Optional inter-ping delay to avoid flooding or triggering rate limits
             if ($DelayMS -gt 0) { Start-Sleep -Milliseconds $DelayMS }
         }
@@ -136,9 +130,8 @@ $pingScriptBlock = {
 }
 
 # ── Function: Invoke-MassPing ─────────────────────────────────────────────────
-# Fires one runspace per host, then polls a shared counter table every 200ms.
-# Each host's progress bar updates live as pings happen. The moment a host
-# finishes, its summary is printed immediately — other hosts keep running.
+# Creates a RunspacePool and fires one runspace per host simultaneously.
+# Waits for all to finish, then collects and returns results in original input order.
 function Invoke-MassPing {
     param(
         [string[]]$Hosts,
@@ -151,29 +144,21 @@ function Invoke-MassPing {
 
     $totalHosts = $Hosts.Count
 
-    # Synchronized hashtable — each runspace writes its current ping number here.
-    # [hashtable]::Synchronized() makes concurrent reads/writes from multiple threads safe.
-    $sharedState = [hashtable]::Synchronized(@{})
-    foreach ($h in $Hosts) { $sharedState[$h] = 0 }
-
     # Pool size = number of hosts — every host pings concurrently
     $pool = [RunspaceFactory]::CreateRunspacePool(1, $totalHosts)
     $pool.Open()
 
-    # Launch one PowerShell instance per host, passing the shared counter table in
-    $jobs = for ($i = 0; $i -lt $Hosts.Count; $i++) {
-        $hostname = $Hosts[$i]
+    # Launch one PowerShell instance per host and track its async handle
+    $jobs = foreach ($hostname in $Hosts) {
         $ps = [PowerShell]::Create()
         $ps.RunspacePool = $pool
-        $ps.AddScript($WorkerScript)                    | Out-Null
-        $ps.AddParameter('Hostname',    $hostname)      | Out-Null
-        $ps.AddParameter('Count',       $Count)         | Out-Null
-        $ps.AddParameter('TimeoutMS',   $TimeoutMS)     | Out-Null
-        $ps.AddParameter('DelayMS',     $DelayMS)       | Out-Null
-        $ps.AddParameter('SharedState', $sharedState)   | Out-Null
+        $ps.AddScript($WorkerScript)       | Out-Null
+        $ps.AddParameter('Hostname',   $hostname)  | Out-Null
+        $ps.AddParameter('Count',      $Count)     | Out-Null
+        $ps.AddParameter('TimeoutMS',  $TimeoutMS) | Out-Null
+        $ps.AddParameter('DelayMS',    $DelayMS)   | Out-Null
 
         [PSCustomObject]@{
-            Index    = $i           # used as unique Write-Progress -Id (must be unique per bar)
             Hostname = $hostname
             PS       = $ps
             Handle   = $ps.BeginInvoke()   # starts running immediately in the background
@@ -182,65 +167,45 @@ function Invoke-MassPing {
 
     Write-Host "All $totalHosts hosts pinging simultaneously...`n" -ForegroundColor Cyan
 
-    $results  = [ordered]@{}
-    # Track which hosts have already had their summary printed
-    $reported = [System.Collections.Generic.HashSet[string]]::new()
+    # Poll until every runspace has finished, showing a live progress bar
+    if ($ShowProgress) {
+        while ($jobs | Where-Object { -not $_.Handle.IsCompleted }) {
+            $done = ($jobs | Where-Object { $_.Handle.IsCompleted }).Count
+            Write-Progress -Activity 'Parallel Ping' `
+                -Status "$done / $totalHosts hosts completed" `
+                -PercentComplete (($done / $totalHosts) * 100)
+            Start-Sleep -Milliseconds 500
+        }
+        Write-Progress -Activity 'Parallel Ping' -Completed
+    } else {
+        # No progress bar — just block until all handles signal completion
+        $jobs | ForEach-Object { $_.Handle.AsyncWaitHandle.WaitOne() | Out-Null }
+    }
 
-    # ── Live polling loop ─────────────────────────────────────────────────────
-    # Runs until every host has been reported. Each 200ms iteration:
-    #   1. Updates each still-running host's progress bar with its live ping count
-    #   2. Detects completed hosts and immediately prints their summary
-    while ($reported.Count -lt $totalHosts) {
+    # Collect results in original input order so the summary matches the input list
+    $results = [ordered]@{}
+    foreach ($job in $jobs) {
+        $stats = $job.PS.EndInvoke($job.Handle)[0]   # [0] unwraps the PSDataCollection wrapper EndInvoke returns
 
-        foreach ($job in $jobs) {
-            if ($reported.Contains($job.Hostname)) { continue }
+        # Print per-host summary as each result is collected
+        $lossColor    = if ($stats.Lost -gt 0)         { 'Red'   } else { 'Green'  }
+        $successColor = if ($stats.SuccessRate -eq 100) { 'Green' } else { 'Yellow' }
 
-            $done  = $sharedState[$job.Hostname]   # live ping count written by the runspace
-            $barId = $job.Index + 1                # each host needs a unique bar Id (must be > 0)
+        Write-Host "--- Summary for $($stats.Hostname) ---"                                          -ForegroundColor Yellow
+        Write-Host "  Sent:        $($stats.Sent)"                                                   -ForegroundColor White
+        Write-Host "  Received:    $($stats.Received)"                                               -ForegroundColor Green
+        Write-Host "  Lost:        $($stats.Lost)"                                                   -ForegroundColor $lossColor
+        Write-Host "  Loss %:      $($stats.LossPercent)%"                                           -ForegroundColor $lossColor
+        Write-Host "  Min/Max/Avg: $($stats.MinTime)ms / $($stats.MaxTime)ms / $($stats.AvgTime)ms"  -ForegroundColor White
+        Write-Host "  Success:     $($stats.SuccessRate)%`n"                                         -ForegroundColor $successColor
 
-            if ($ShowProgress) {
-                Write-Progress -Activity "Pinging $($job.Hostname)" `
-                    -Status "Ping $done / $Count" `
-                    -PercentComplete ([Math]::Min(100, [Math]::Round(($done / $Count) * 100))) `
-                    -Id $barId
-            }
-
-            # Check if this host's runspace has finished
-            if ($job.Handle.IsCompleted) {
-                if ($ShowProgress) {
-                    Write-Progress -Activity "Pinging $($job.Hostname)" -Completed -Id $barId
-                }
-
-                # EndInvoke retrieves the return value; [0] unwraps the PSDataCollection wrapper
-                $stats = $job.PS.EndInvoke($job.Handle)[0]
-                $job.PS.Dispose()
-
-                # ── Print this host's summary immediately ─────────────────────
-                $lossColor    = if ($stats.Lost -gt 0)         { 'Red'   } else { 'Green'  }
-                $successColor = if ($stats.SuccessRate -eq 100) { 'Green' } else { 'Yellow' }
-
-                Write-Host "--- Summary for $($stats.Hostname) ---"                                              -ForegroundColor Yellow
-                Write-Host "  Sent:        $($stats.Sent)"                                                       -ForegroundColor White
-                Write-Host "  Received:    $($stats.Received)"                                                   -ForegroundColor Green
-                Write-Host "  Lost:        $($stats.Lost)"                                                       -ForegroundColor $lossColor
-                Write-Host "  Loss %:      $($stats.LossPercent)%"                                               -ForegroundColor $lossColor
-                Write-Host "  Min/Max/Avg: $($stats.MinTime)ms / $($stats.MaxTime)ms / $($stats.AvgTime)ms"      -ForegroundColor White
-                Write-Host "  Success:     $($stats.SuccessRate)%`n"                                             -ForegroundColor $successColor
-
-                if ($stats.Errors.Count -gt 0) {
-                    Write-Host "  Errors ($($stats.Errors.Count) unique):" -ForegroundColor Red
-                    $stats.Errors | ForEach-Object { Write-Host "    - $_" -ForegroundColor DarkRed }
-                }
-
-                $results[$stats.Hostname] = $stats
-                $reported.Add($job.Hostname) | Out-Null
-            }
+        if ($stats.Errors.Count -gt 0) {
+            Write-Host "  Errors ($($stats.Errors.Count) unique):" -ForegroundColor Red
+            $stats.Errors | ForEach-Object { Write-Host "    - $_" -ForegroundColor DarkRed }
         }
 
-        # Only sleep if there are still running hosts — avoids a wasted sleep at the very end
-        if ($reported.Count -lt $totalHosts) {
-            Start-Sleep -Milliseconds 200
-        }
+        $job.PS.Dispose()
+        $results[$stats.Hostname] = $stats
     }
 
     $pool.Close()
@@ -309,14 +274,12 @@ $overallLoss = if ($totalSent -gt 0) {
 Write-Host "`n$sep"                                                         -ForegroundColor Cyan
 Write-Host 'OVERALL SUMMARY'                                                -ForegroundColor Cyan
 Write-Host $sep                                                              -ForegroundColor Cyan
-$durationFormatted = '{0:D2}h {1:D2}m {2:D2}s {3:D3}ms' -f $duration.Hours, $duration.Minutes, $duration.Seconds, $duration.Milliseconds
-Write-Host "Duration:       $durationFormatted"                              -ForegroundColor White
+Write-Host "Duration:       $([Math]::Round($duration.TotalSeconds, 2))s"  -ForegroundColor White
 Write-Host "Hosts Tested:   $($results.Count)"                             -ForegroundColor White
 Write-Host "Total Sent:     $totalSent"                                     -ForegroundColor White
 Write-Host "Total Received: $totalReceived"                                 -ForegroundColor Green
 Write-Host "Overall Loss:   $overallLoss%" -ForegroundColor $(if ($overallLoss -gt 0) { 'Red' } else { 'Green' })
 Write-Host "$sep`n"                                                          -ForegroundColor Cyan
-Write-Host "Total execution time: $durationFormatted" -ForegroundColor Yellow
 
 # Always export — file path defaults to a timestamped CSV next to the script
 Export-ResultsToCSV -Results $results -FilePath $OutputCSV
