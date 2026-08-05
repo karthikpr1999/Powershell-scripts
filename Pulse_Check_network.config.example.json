@@ -1,0 +1,17 @@
+{
+  "defaultMtu": 1460,
+  "targets": [
+    "google.com",
+    "cloudflare.com",
+    "microsoft.com",
+    "amazon.in",
+    "youtube.com",
+    "facebook.com",
+    "twitter.com",
+    "linkedin.com",
+    "github.com",
+    "netflix.com",
+    "mausam.imd.gov.in",
+    "us-east-1.console.aws.amazon.com"
+  ]
+}

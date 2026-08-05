@@ -1,6 +1,6 @@
 {
-  "ExternalHost": "google.com",
+  "ExternalHost": "sfsf-hc-ecp.sapsf.com",
   "InternalHost": "cam.int.sap",
-  "ExternalWebSite": "https://www.google.com",
-  "InternalWebSite": "https://cam.int.sap"
+  "ExternalWebSite": "https://sfsf-hc-ecp.sapsf.com",
+  "InternalWebSite": "https://nip.wdf.sap.corp"
 }

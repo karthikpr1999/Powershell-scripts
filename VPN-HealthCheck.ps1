@@ -338,12 +338,47 @@ Write-Host ""
 $TraceExt = Start-Job { param($h) tracert -d -w 1000 $h } -ArgumentList $ExternalHost
 $TraceInt = Start-Job { param($h) tracert -d -w 1000 $h } -ArgumentList $InternalHost
 
+$TraceExtLines = Receive-Job $TraceExt -Wait
+$TraceIntLines = Receive-Job $TraceInt -Wait
+Remove-Job $TraceExt, $TraceInt
+
 Write-Host "Traceroute -> $ExternalHost :"
-Receive-Job $TraceExt -Wait | ForEach-Object { Write-Host $_ }
+$TraceExtLines | ForEach-Object { Write-Host $_ }
 Write-Host ""
 Write-Host "Traceroute -> $InternalHost :"
-Receive-Job $TraceInt -Wait | ForEach-Object { Write-Host $_ }
-Remove-Job $TraceExt, $TraceInt
+$TraceIntLines | ForEach-Object { Write-Host $_ }
+Write-Host ""
+
+# ==========================================
+# PING.EXE CAPTURE (full native output)
+# ==========================================
+Write-Host "========== PING (native) ==========" -ForegroundColor Cyan
+Write-Host ""
+
+$PingExtLines = ping -n 4 $ExternalHost
+Write-Host "Ping -> $ExternalHost :"
+$PingExtLines | ForEach-Object { Write-Host $_ }
+Write-Host ""
+
+$PingIntLines = ping -n 4 $InternalHost
+Write-Host "Ping -> $InternalHost :"
+$PingIntLines | ForEach-Object { Write-Host $_ }
+Write-Host ""
+
+# ==========================================
+# NSLOOKUP CAPTURE
+# ==========================================
+Write-Host "========== NSLOOKUP ==========" -ForegroundColor Cyan
+Write-Host ""
+
+$NslookupExtLines = nslookup $ExternalHost 2>&1
+Write-Host "Nslookup -> $ExternalHost :"
+$NslookupExtLines | ForEach-Object { Write-Host $_ }
+Write-Host ""
+
+$NslookupIntLines = nslookup $InternalHost 2>&1
+Write-Host "Nslookup -> $InternalHost :"
+$NslookupIntLines | ForEach-Object { Write-Host $_ }
 Write-Host ""
 
 # ==========================================
@@ -477,6 +512,71 @@ $JsonPath = Join-Path $ReportsDir "VPN-HealthCheck-$Stamp.json"
 } | ConvertTo-Json -Depth 5 | Set-Content -Path $JsonPath -Encoding UTF8
 
 # ==========================================
+# REPORT EXPORT — TXT (ping / tracert / nslookup)
+# ==========================================
+$TxtPath = Join-Path $ReportsDir "VPN-HealthCheck-$Stamp.txt"
+
+$Sep  = "=" * 60
+$Sep2 = "-" * 60
+
+$TxtContent = @"
+$Sep
+VPN CONNECTIVITY HEALTH CHECK
+Computer : $($env:COMPUTERNAME)
+Run Date : $($RunDate.ToString('yyyy-MM-dd HH:mm:ss'))
+Duration : ${TotalSec}s
+External : $ExternalHost  /  $ExternalWebSite
+Internal : $InternalHost  /  $InternalWebSite
+$Sep
+
+$Sep
+PING — $ExternalHost
+$Sep
+$($PingExtLines -join "`n")
+
+$Sep
+PING — $InternalHost
+$Sep
+$($PingIntLines -join "`n")
+
+$Sep
+TRACEROUTE — $ExternalHost
+$Sep
+$($TraceExtLines -join "`n")
+
+$Sep
+TRACEROUTE — $InternalHost
+$Sep
+$($TraceIntLines -join "`n")
+
+$Sep
+NSLOOKUP — $ExternalHost
+$Sep
+$($NslookupExtLines -join "`n")
+
+$Sep
+NSLOOKUP — $InternalHost
+$Sep
+$($NslookupIntLines -join "`n")
+
+$Sep
+SUMMARY
+$Sep
+$(($Results | ForEach-Object {
+    $line = "  [{0}]  {1}" -f $_.Status, $_.Test
+    if ($_.Detail)     { $line += "  --  $($_.Detail)" }
+    if ($_.DurationMs) { $line += "  [$($_.DurationMs) ms]" }
+    $line
+}) -join "`n")
+
+$Sep2
+Total: $($Results.Count) checks  |  $PassCount passed  |  $FailCount failed  |  $TotalSec s
+$Sep
+"@
+
+$TxtContent | Set-Content -Path $TxtPath -Encoding UTF8
+
+# ==========================================
 # FINAL FOOTER
 # ==========================================
 Write-Host "=========================================" -ForegroundColor Cyan
@@ -485,6 +585,7 @@ Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  HTML : $HtmlPath" -ForegroundColor Green
 Write-Host "  JSON : $JsonPath" -ForegroundColor Green
+Write-Host "  TXT  : $TxtPath"  -ForegroundColor Green
 Write-Host ""
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "   VPN CONNECTIVITY VALIDATION COMPLETED"  -ForegroundColor Cyan
